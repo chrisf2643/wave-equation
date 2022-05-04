@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<style>
+body {
+  font: 13px/13px "Helvetica Neue", Helvetica, Arial, sans-serif;
+  margin: auto;
+  position: relative;
+  width: 960px;
+  height: 1000px;
+}
+form {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+.hide {
+  display: none;
+}
+.graph {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 3px;
+}
+.graphFftRe {
+  fill: none;
+  stroke: blue;
+  stroke-width: 3px;
+  opacity:0.5;
+}
+.graphFftIm {
+  fill: none;
+  stroke: red;
+  stroke-width: 3px;
+  opacity:0.5;
+}
+</style>
+</head>
+<body>
+<form>
+  <p>
+    <select id="type">
+      <option value="gaussian">Gaussian</option>
+      <option value="rect">Rectangular</option>
+      <option value="pluck">Pluck</option>
+      <option value="pulse">Pulse</option>
+    </select>
+  </p>
+</form>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="fft.js"></script>
+<script>
+(function() {
+	var
+		//
+		// Set up view port
+		//
+		margin = {top: 40, right: 100, bottom: 40, left: 150},
+		W = 960,
+		H = 1000,
+		w = W - margin.left - margin.right,
+		h = H/2.0 - margin.top - margin.bottom,
+		
+		//
+		// Set up wave parameters
+		//
+		wavesize = 128,      //number of samples
+		waveprev = null,     
+		waveprevprev = null, //state of wave 2 timesteps previous
+		wvdt = 0.0001,       //size of time step
+		wvc = 3000,          //speed of wave (orig. 3000)
+		wvdmp = 9,           //damping factor (orig 9)
+		wave = [],
+		
+		fft = [];
+
+		timer = null;
+
+	var fn = "gaussian";
+	var initials = [];
+
+	var sx = d3.scaleLinear()
+	.domain([0, wavesize-1])
+	.range([0, w]);
+
+	var sy = d3.scaleLinear()
+	.domain([-2, 2])
+	.range([h, 0]);
+	
+	var syfft = d3.scaleLinear()
+	.domain([-20, 20])
+	.range([h, 0]);
+
+	var data = [];
+	var domain = [];
+
+	var line = d3.line()
+		.x(function(x) { 
+			return sx(x); 
+		})
+		.y(function(x) { return sy(wave[x]); });
+
+	var fftlineRe = d3.line()
+		.x(function(x) { 
+			return sx(x); 
+		})
+		.y(function(x) { return syfft(fft[x].re); });
+	
+	var fftlineIm = d3.line()
+		.x(function(x) { 
+			return sx(x); 
+		})
+		.y(function(x) { return syfft(fft[x].im); });
+		
+	var svg = d3.select("body")
+	  .append("svg")
+	  .attr("width", W)
+	  .attr("height", H/2.0)
+	  
+	var svgFft = d3.select("body")
+	  .append("svg")
+	  .attr("width", W)
+	  .attr("height", H/2.0)
+
+	svg.on("click", function() {
+		var coords = d3.mouse(this);
+
+		var x = Math.round( sx.invert(coords[0] - margin.left));
+		var y = ( sy.invert(coords[1]));
+		
+		if (x => 0 && x < wavesize) {
+			var g = initials[fn](-5 + x / (wavesize/10) );
+			//var g = pluck();
+		
+			for (var i = 0; i < wavesize; i++) {
+				wave[i] = wave[i] + 0.1*g[i];
+			}
+		}
+	  });
+		  	
+	var vis = svg.append("g")
+	   .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	var gPath = vis.append("path").attr("class", "graph");
+
+	var visFft = svgFft.append("g")
+	   .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	var gPathFftRe = visFft.append("path").attr("class", "graphFftRe");
+
+	var gPathFftIm = visFft.append("path").attr("class", "graphFftIm");
+	
+	//
+	// Main loop
+	//
+	function play() {
+		if (timer) return;
+		(function loop() {
+			gPath.attr("d", line(domain));
+			gPathFftRe.attr("d", fftlineRe(domain));
+			gPathFftIm.attr("d", fftlineIm(domain));
+			wave = wavesolve(wave);
+			fft = cfft(wave.slice());
+			timer = setTimeout(loop, 10);
+		})();
+	}
+	
+	//
+	// Gausian used for initial condition and to perturb the wave
+	//
+//	function gaussian(mean) 
+	initials["gaussian"] = (mean) => {
+		var result = [];
+		var std = 0.2
+		var c = 1 / Math.sqrt(2 * Math.PI * std);
+		for (var i = 0; i < wavesize; i++) {
+			var x = -5 + i / (wavesize/10);
+			var sx = x - mean;
+			result[i] = c * Math.exp(-.5 * sx * sx / std);
+		}
+		return result;
+	}
+	
+	//function rect(center) {
+	initials["rect"] = (center) => {
+		var result = [];
+		for (var i = 0; i < wavesize; i++) {
+			var x = -5 + i / (wavesize/10);
+			if (x > center - 1.5 && x < center + 1.5) {
+				result[i] = 1.0;
+			} else {
+				result[i] = 0.0;
+			}
+		}
+		return result;
+	}
+
+	//function pluck(center) {
+	initials["pluck"] = (center) => {
+		var result = [];
+		for (var i = 0; i < wavesize; i++) {
+			var x = -5 + i / (wavesize/10);
+			if (x <= 0) {
+				result[i] = x * 0.20 + 1.0
+			} else {
+				result[i] = -x * 0.20 + 1.0
+			}
+		}
+		return result;
+	}
+
+	//function pulse(center) {
+	initials["pulse"] = (center) => {
+		var result = [];
+		for (var i = 0; i < wavesize; i++) {
+			var x = -5 + i / (wavesize/10);
+			result[i] = 0.0;
+			if (center - 1/(wavesize/10) < x && x < center + 1/(wavesize/10)) {
+				result[i] = 20.0;
+			} 
+		}
+		return result;
+	}
+	
+	//
+	// Solve wave for single time step
+	//
+	function wavesolve(initial) {
+		waveprev = initial;
+		if (waveprevprev == null)
+			waveprevprev = initial;
+
+		var result = [];
+
+		for (var i = 0; i < wavesize; i++)
+		{
+			var negModIndex;
+			if (i == 0)
+				negModIndex = wavesize-1;
+			else
+				negModIndex = i - 1;
+
+			var posModIndex = (i + 1) % wavesize;
+			result[i] = (wvdt * wvdt) * (wvc * wvc) * (waveprev[posModIndex] - 2.0 * waveprev[i] + waveprev[negModIndex]) - waveprevprev[i];
+			result[i] = result[i] / (1.0 + wvdmp * wvdt) + 1.991 * waveprev[i];
+		}
+
+		waveprevprev = waveprev;	
+		return result;
+	}
+
+	d3.select("#type").on("change", function() {
+		fn = this.value;
+	});
+
+	var g = initials["gaussian"](0);
+	for (var i = 0; i < wavesize; i++) {	
+		wave[i] = 0.1*g[i]; 
+		fft[i] = new Complex(0,0);
+		domain[i] = i;
+	}
+	data.length = wavesize;
+	domain.length = wavesize;
+
+	play();
+
+})();
+</script>
+</body>
