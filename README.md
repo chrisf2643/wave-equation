@@ -4,7 +4,7 @@ The wave equation is a partial differential equation that describes the motion o
 form:
 
 <p align="center">
-  <img src="https://gist.githubusercontent.com/chrisf2643/fe713037e0e82dcc2f429bddd1ed997a/raw/waveeq1.png">
+  <img src="https://chrisf2643.github.io/wave-equation/waveeq1.png">
 </p>
 
 Where c is the propagation speed. This is a second-order partial differential equation - the highest term (in this case, all terms) contains a second partial derivative.
