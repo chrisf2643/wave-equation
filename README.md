@@ -107,7 +107,7 @@ Thus the solution is the sum of two functions, f_n and g_n, that each continuous
 The version of the wave equation presented above models a system in which waves propate forever without dying out. A version of the wave equation that models "dying out" contains a term with a damping factor:
 
 <p align="center">
-  <img src="https://gist.github.com/chrisf2643/fe713037e0e82dcc2f429bddd1ed997a/raw/f908bf6ba17eb6448d308f8c16224efe6995b116/waveeqdm1.png">
+  <img src="https://chrisf2643.github.io/wave-equation/waveeqdm1.png">
 </p>
 
 
@@ -120,7 +120,7 @@ The version of the wave equation presented above models a system in which waves 
 This time we'll try to solve this numerically, starting with the definitions of first and second derivatives:
 
 <p align="center">
-  <img src="https://gist.github.com/chrisf2643/fe713037e0e82dcc2f429bddd1ed997a/raw/33455f10d829bc479781bdae6d6711e2cee936f0/dxforumlas.png">
+  <img src="https://chrisf2643.github.io/wave-equation/dxforumlas.png">
 </p>
 
 
